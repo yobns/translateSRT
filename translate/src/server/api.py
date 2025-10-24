@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="SRT Translate Backend", version="1.0.0")
 
@@ -149,6 +150,21 @@ from fastapi.responses import Response
 from ..translator import translate as t
 
 app = FastAPI(title="SRT Translator API")
+
+# Configure CORS. If FRONTEND_URL is set it will be used (comma-separated), otherwise allow all origins.
+_frontend = os.environ.get("FRONTEND_URL")
+if _frontend:
+    _allow = [u.strip() for u in _frontend.split(",") if u.strip()]
+else:
+    _allow = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allow,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 async def health():

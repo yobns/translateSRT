@@ -7,3 +7,19 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn src.server.api:app --host 0.0.0.0 --port $PORT
     envVars: []
+
+  - type: web
+    name: translate-frontend
+    env: node
+    plan: free
+    root: .
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start -- -p $PORT
+    envVars:
+      # Configure the frontend to proxy requests to the backend API.
+      # You can set PY_BACKEND_URL to the backend URL (e.g. https://translatesrt.onrender.com)
+      - key: PY_BACKEND_URL
+        value: ""
+      # Optional: expose FRONTEND_URL so backend CORS can be locked down to your frontend origin
+      - key: FRONTEND_URL
+        value: ""
