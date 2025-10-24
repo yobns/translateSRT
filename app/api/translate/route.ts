@@ -116,8 +116,43 @@ export async function POST(req: NextRequest) {
       }
       outHeaders.set("cache-control", "no-store");
 
-      // Return the backend body stream directly so the browser can stream-download it.
-      return new Response(resp.body, {
+      // Normalize the body: Node fetch (or platform) may return a Node Readable stream which
+      // is not directly consumable by the Web Response in some runtimes. Convert Node streams
+      // to Web ReadableStream when necessary so the browser/client can consume it reliably.
+      let body: any = resp.body;
+      try {
+        // Heuristic: Node Readable streams typically have a `pipe` method.
+        if (body && typeof (body as any).pipe === "function") {
+          // If `toWeb` exists (Node 17+), use it; otherwise wrap manually.
+          if (typeof (body as any).toWeb === "function") {
+            body = (body as any).toWeb();
+          } else {
+            // Wrap a Node Readable into a Web ReadableStream
+            body = new ReadableStream({
+              start(controller) {
+                (body as any).on("data", (chunk: Buffer) => {
+                  try {
+                    controller.enqueue(new Uint8Array(chunk));
+                  } catch (err) {
+                    controller.error(err);
+                  }
+                });
+                (body as any).on("end", () => controller.close());
+                (body as any).on("error", (err: any) => controller.error(err));
+              },
+              cancel(reason) {
+                try {
+                  (body as any).destroy && (body as any).destroy();
+                } catch (e) {}
+              },
+            });
+          }
+        }
+      } catch (e) {
+        // If anything goes wrong normalizing, fall back to passing resp.body directly.
+      }
+
+      return new Response(body, {
         status: resp.status,
         headers: outHeaders,
       });
