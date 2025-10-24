@@ -64,6 +64,14 @@ export async function POST(req: NextRequest) {
     const source = String(form.get("source") || "auto").toLowerCase();
     const backend = (process.env.PY_BACKEND_URL || "").trim();
 
+    // If in production and no remote Python backend is configured, fail fast with a helpful error.
+    // In production the Next runtime usually doesn't have Python or the translator pipeline available,
+    // so attempting to run it here will fail; require a remote backend and proxy to it instead.
+    if (!backend && process.env.NODE_ENV === "production") {
+      console.error("PY_BACKEND_URL is not set in production. Set PY_BACKEND_URL to your backend URL (eg https://translatesrt.onrender.com)");
+      return new Response(JSON.stringify({ error: "Backend not configured. Set PY_BACKEND_URL in frontend environment to your Python backend URL." }), { status: 502 });
+    }
+
     // If a remote Python backend is configured (for Vercel), proxy the request.
     if (backend) {
       const fd = new FormData();
@@ -91,7 +99,13 @@ export async function POST(req: NextRequest) {
       const url = base + "/translate";
       // Stream the backend response instead of buffering it. This allows the browser to
       // receive progress events and streaming bytes in production where buffering can hide progress.
-      const resp = await fetch(url, { method: "POST", body: fd });
+      let resp: Response;
+      try {
+        resp = await fetch(url, { method: "POST", body: fd });
+      } catch (err: any) {
+        console.error("Error proxying to backend:", err);
+        return new Response(JSON.stringify({ error: "Proxy error", details: String(err?.message || err) }), { status: 502 });
+      }
 
       // Build forwarded headers, filtering hop-by-hop headers per RFC.
       const hopByHop = new Set([
