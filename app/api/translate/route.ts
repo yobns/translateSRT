@@ -64,14 +64,6 @@ export async function POST(req: NextRequest) {
     const source = String(form.get("source") || "auto").toLowerCase();
     const backend = (process.env.PY_BACKEND_URL || "").trim();
 
-    // If in production and no remote Python backend is configured, fail fast with a helpful error.
-    // In production the Next runtime usually doesn't have Python or the translator pipeline available,
-    // so attempting to run it here will fail; require a remote backend and proxy to it instead.
-    if (!backend && process.env.NODE_ENV === "production") {
-      console.error("PY_BACKEND_URL is not set in production. Set PY_BACKEND_URL to your backend URL (eg https://translatesrt.onrender.com)");
-      return new Response(JSON.stringify({ error: "Backend not configured. Set PY_BACKEND_URL in frontend environment to your Python backend URL." }), { status: 502 });
-    }
-
     // If a remote Python backend is configured (for Vercel), proxy the request.
     if (backend) {
       const fd = new FormData();
@@ -97,78 +89,23 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
       const url = base + "/translate";
-      // Stream the backend response instead of buffering it. This allows the browser to
-      // receive progress events and streaming bytes in production where buffering can hide progress.
-      let resp: Response;
-      try {
-        resp = await fetch(url, { method: "POST", body: fd });
-      } catch (err: any) {
-        console.error("Error proxying to backend:", err);
-        return new Response(JSON.stringify({ error: "Proxy error", details: String(err?.message || err) }), { status: 502 });
-      }
-
-      // Build forwarded headers, filtering hop-by-hop headers per RFC.
-      const hopByHop = new Set([
-        "connection",
-        "keep-alive",
-        "proxy-authenticate",
-        "proxy-authorization",
-        "te",
-        "trailers",
-        "transfer-encoding",
-        "upgrade",
-      ]);
-      const outHeaders = new Headers();
-      for (const [k, v] of resp.headers.entries()) {
-        if (!hopByHop.has(k.toLowerCase())) {
-          outHeaders.set(k, v as string);
-        }
-      }
-      // Ensure content-disposition and cache-control exist for the client
-      if (!outHeaders.has("content-disposition")) {
-        outHeaders.set("content-disposition", `attachment; filename="output_${target}.srt"`);
-      }
-      outHeaders.set("cache-control", "no-store");
-
-      // Normalize the body: Node fetch (or platform) may return a Node Readable stream which
-      // is not directly consumable by the Web Response in some runtimes. Convert Node streams
-      // to Web ReadableStream when necessary so the browser/client can consume it reliably.
-      let body: any = resp.body;
-      try {
-        // Heuristic: Node Readable streams typically have a `pipe` method.
-        if (body && typeof (body as any).pipe === "function") {
-          // If `toWeb` exists (Node 17+), use it; otherwise wrap manually.
-          if (typeof (body as any).toWeb === "function") {
-            body = (body as any).toWeb();
-          } else {
-            // Wrap a Node Readable into a Web ReadableStream
-            body = new ReadableStream({
-              start(controller) {
-                (body as any).on("data", (chunk: Buffer) => {
-                  try {
-                    controller.enqueue(new Uint8Array(chunk));
-                  } catch (err) {
-                    controller.error(err);
-                  }
-                });
-                (body as any).on("end", () => controller.close());
-                (body as any).on("error", (err: any) => controller.error(err));
-              },
-              cancel(reason) {
-                try {
-                  (body as any).destroy && (body as any).destroy();
-                } catch (e) {}
-              },
-            });
-          }
-        }
-      } catch (e) {
-        // If anything goes wrong normalizing, fall back to passing resp.body directly.
-      }
-
-      return new Response(body, {
+      const resp = await fetch(url, { method: "POST", body: fd });
+      const ab = await resp.arrayBuffer();
+      // Pass-through headers we care about. IMPORTANT: use the actual buffer length
+      // rather than trusting the backend's Content-Length (which may reflect
+      // compressed size). Also avoid forwarding Content-Encoding to prevent the
+      // browser from attempting to decode already-decoded bytes (causes ERR_CONTENT_DECODING_FAILED).
+      const cd = resp.headers.get("content-disposition") || `attachment; filename="output_${target}.srt"`;
+      const cl = String((ab && (ab.byteLength || 0)) || 0);
+      return new Response(ab, {
         status: resp.status,
-        headers: outHeaders,
+        headers: {
+          "Content-Type": resp.headers.get("content-type") || "text/plain; charset=utf-8",
+          "Content-Disposition": cd,
+          // Ensure Content-Length matches the actual body we're sending
+          "Content-Length": cl,
+          "Cache-Control": "no-store",
+        },
       });
     }
 
