@@ -17,10 +17,6 @@ pip3 install -r translate/requirements.txt
 Run the app:
 
 ```bash
-# Quick (one-command) developer start (starts backend + frontend)
-npm run dev:all
-
-# or start frontend only
 npm run dev
 ```
 

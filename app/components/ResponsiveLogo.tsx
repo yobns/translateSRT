@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Image from "next/image";
 
 export default function ResponsiveLogo() {
   const [visible, setVisible] = useState(true);
@@ -35,7 +34,10 @@ export default function ResponsiveLogo() {
       }`}
     >
       <div className="relative h-28 w-28 sm:h-32 sm:w-32">
-        <Image src="/logo.png" alt="SRT Translate" fill className="object-contain" priority />
+        <picture>
+          <source srcSet="/logoWhite.png" media="(prefers-color-scheme: dark)" />
+          <img src="/logo.png" alt="SRT Translate" className="logo-img object-contain h-full w-full" />
+        </picture>
       </div>
     </a>
   );
