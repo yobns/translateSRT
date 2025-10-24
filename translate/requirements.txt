@@ -1,0 +1,7 @@
+pysrt>=1.1.2
+langdetect>=1.0.9
+tqdm>=4.67.1
+deep-translator>=1.11.4
+charset-normalizer>=3.4.4
+fastapi>=0.115.0
+uvicorn>=0.30.0

@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs
+.venv/
+
+# Editor/OS
+.DS_Store
+.vscode/
+
+# Local caches/outputs
+.translate_cache.sqlite*
+# Optional: uncomment to ignore generated translations
+# *_*.srt

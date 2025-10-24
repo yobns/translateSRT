@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PYTHON_CMD=python3
+    # If you prefer live reload during development, uncomment the next lines:
+    # volumes:
+    #   - .:/app
+    # command: npm run dev
