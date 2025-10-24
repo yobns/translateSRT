@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 export default function ResponsiveLogo() {
   const [visible, setVisible] = useState(true);
+  const [imgSrc, setImgSrc] = useState<string>("/logo.png");
 
   useEffect(() => {
     const sentinel = document.getElementById("logo-sentinel");
@@ -25,6 +26,44 @@ export default function ResponsiveLogo() {
     return () => obs.disconnect();
   }, []);
 
+  // Fallback for mobile browsers that don't select <source media> inside <picture>
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const prefersDark = () => window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const hasDarkClass = () => document.documentElement.classList.contains("dark");
+
+    const update = () => {
+      setImgSrc(prefersDark() || hasDarkClass() ? "/logoWhite.png" : "/logo.png");
+    };
+
+    update();
+
+    // Listen to OS-level changes
+    let mql: MediaQueryList | null = null;
+    if (window.matchMedia) {
+      mql = window.matchMedia("(prefers-color-scheme: dark)");
+      const handler = (e: MediaQueryListEvent) => update();
+      // modern and legacy
+      if (mql.addEventListener) mql.addEventListener("change", handler);
+      else if (mql.addListener) mql.addListener(handler as any);
+
+      // cleanup will remove listener below
+    }
+
+    // Also watch for class changes (some setups toggle .dark on <html>)
+    const mo = new MutationObserver(() => update());
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+    return () => {
+      if (mql) {
+        if (mql.removeEventListener) mql.removeEventListener("change", update as any);
+        else if (mql.removeListener) mql.removeListener(update as any);
+      }
+      mo.disconnect();
+    };
+  }, []);
+
   return (
     <a
       href="/"
@@ -36,7 +75,7 @@ export default function ResponsiveLogo() {
       <div className="relative h-28 w-28 sm:h-32 sm:w-32">
         <picture>
           <source srcSet="/logoWhite.png" media="(prefers-color-scheme: dark)" />
-          <img src="/logo.png" alt="SRT Translate" className="logo-img object-contain h-full w-full" />
+          <img src={imgSrc} alt="SRT Translate" className="logo-img object-contain h-full w-full" />
         </picture>
       </div>
     </a>
