@@ -213,13 +213,16 @@ export default function Home() {
         </div>
       )}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(60rem_60rem_at_120%_10%,rgba(14,165,233,0.08),transparent_40%),radial-gradient(40rem_40rem_at_-10%_-10%,rgba(139,92,246,0.08),transparent_40%)]" />
-      <div className="mx-auto max-w-3xl px-6 py-16">
+  <div className="mx-auto max-w-3xl px-6 pt-8 pb-16 min-w-0">
         <header className="mb-10 text-center">
           <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-600 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-zinc-300">
             <span>🤖 AI‑powered SRT Translation</span>
           </div>
-          <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">Translate your subtitles with AI</h1>
-          <p className="mx-auto mt-3 max-w-2xl text-pretty text-zinc-600 dark:text-zinc-400">Drag & drop your .srt file, pick a target language, and download high‑quality, AI‑powered translations with context‑aware grouping. Simple, fast, free.</p>
+          <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+            Translate your subtitles with
+            <span className="ml-3 inline-block bg-gradient-to-r from-indigo-500 via-pink-500 to-amber-400 bg-clip-text text-transparent font-extrabold tracking-tight text-4xl sm:text-5xl text-glow">AI</span>
+          </h1>
+          <p className="mx-auto mt-3 max-w-2xl text-pretty text-zinc-600 dark:text-zinc-400">Upload your .srt file, pick a target language, and download high‑quality, AI‑powered translations with context‑aware grouping. Simple, fast, free.</p>
         </header>
 
         <form onSubmit={onSubmit} className="rounded-2xl border border-zinc-200 bg-white/80 p-6 shadow-xl backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-950/80">
@@ -254,9 +257,26 @@ export default function Home() {
                 <span>Processing…</span>
               ) : null}
             </div>
+            {phase === "processing" && (
+              <div className="mt-3 flex items-center justify-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                <svg className="h-4 w-4 animate-spin text-zinc-600 dark:text-zinc-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span>Processing… this can take a few moments. The download will appear automatically once ready.</span>
+              </div>
+            )}
+            {phase === "downloading" && readyUrl && (
+              <div className="mt-3 flex items-center justify-center text-sm text-zinc-700 dark:text-zinc-300">
+                <span>
+                  Your translation is ready — click <strong className="font-semibold">Download file</strong> to save it.
+                  {readyName ? (<span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">({readyName}{totalSize ? ` • ${formatBytes(totalSize)}` : ""})</span>) : null}
+                </span>
+              </div>
+            )}
           </div>
           <div className="grid gap-6">
-            {phase !== "downloading" && (
+            {phase === "idle" && (
               <div>
                 <div
                   onClick={pickFile}
@@ -270,44 +290,56 @@ export default function Home() {
                     if (f) handleFiles(f);
                   }}
                   className={[
-                    "group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition",
+                    // add min-w-0 and w-full so children can shrink and not cause horizontal overflow on small screens
+                    "group flex w-full min-w-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition",
                     dragOver ? "border-zinc-900 bg-zinc-50/70 dark:border-neutral-200 dark:bg-neutral-900/60" : "border-zinc-300 hover:bg-zinc-50/60 dark:border-neutral-700 dark:hover:bg-neutral-900/50",
                   ].join(" ")}
                 >
-                  <svg
-                    className={[
-                      "h-16 w-16 text-zinc-400 transition-transform dark:text-zinc-500",
-                      dragOver ? "scale-110" : "group-hover:scale-105"
-                    ].join(" ")}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
-                    />
-                  </svg>
-                  <div className="text-sm">
-                    <span className="font-medium">Drag & drop</span> your .srt here, or <span className="font-medium underline">click to choose</span>
-                  </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">AI‑powered machine translation • Usually very small files (a few hundred KB)</div>
-                  {file && (
-                    <div className="mt-2 inline-flex items-center gap-2 rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700 dark:bg-neutral-800 dark:text-zinc-200">
-                      <span className="truncate max-w-[50ch]">Selected file: {file.name}</span>
-                      <button
-                        type="button"
-                        aria-label="Clear selected file"
-                        onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = ""; }}
-                        className="rounded p-1 hover:bg-zinc-200 dark:hover:bg-neutral-700"
-                        title="Remove"
-                      >
-                        ✕
-                      </button>
+                  {file ? (
+                    <div className="flex w-full flex-col items-center gap-3">
+                        <div className="flex w-full flex-col sm:flex-row items-start sm:items-center gap-3 rounded-md bg-zinc-100 px-4 py-3 text-sm text-zinc-700 dark:bg-neutral-800 dark:text-zinc-200 overflow-hidden">
+                          <svg className="hidden sm:block h-6 w-6 text-zinc-600 dark:text-zinc-300 self-center sm:self-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                        </svg>
+                          <div className="flex-1 min-w-0 w-full sm:max-w-[calc(100%-6rem)] flex flex-col items-start">
+                            <span title={file.name} className="font-medium truncate text-left w-full">{file.name}</span>
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">{formatBytes(file.size)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            aria-label="Clear selected file"
+                            onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = ""; }}
+                            className="ml-0 sm:ml-4 rounded p-1 hover:bg-zinc-200 dark:hover:bg-neutral-700 self-center sm:self-auto"
+                            title="Remove"
+                          >
+                            ✕
+                          </button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      <svg
+                        className={[
+                          "h-16 w-16 text-zinc-400 transition-transform dark:text-zinc-500",
+                          dragOver ? "scale-110" : "group-hover:scale-105"
+                        ].join(" ")}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
+                        />
+                      </svg>
+                      <div className="text-sm">
+                        <span className="font-medium">Drag & drop</span> your .srt here, or <span className="font-medium underline">click to choose</span>
+                      </div>
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">AI‑powered machine translation</div>
+                    </>
                   )}
                 </div>
                 <input
@@ -320,16 +352,12 @@ export default function Home() {
               </div>
             )}
 
-            {phase !== "downloading" && (
+            {phase === "idle" && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium">Source language</label>
                   <select value={source} onChange={(e) => setSource(e.target.value)} className="w-full rounded-md border border-zinc-300 bg-white p-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-                    {LANG_OPTIONS.map((l) => (
-                      <option key={l.code} value={l.code}>
-                        {l.flag} {l.label}
-                      </option>
-                    ))}
+                    <option value="auto">🌐 Auto</option>
                   </select>
                 </div>
                 <div>
@@ -353,34 +381,43 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex flex-col-reverse items-start gap-3 sm:flex-row sm:items-center">
-              {phase === "downloading" ? (
-                <button
-                  type="button"
-                  onClick={triggerDownload}
-                  disabled={!readyUrl}
-                  className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-black disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-                >
-                  {readyUrl ? "Download file" : "Preparing download…"}
-                </button>
+            <div className="flex flex-col-reverse items-center gap-3 sm:flex-row sm:items-center sm:justify-center">
+              {(phase === "downloading" || phase === "processing") ? (
+                <div className="flex items-center gap-3 justify-center flex-wrap">
+                  <button
+                    type="button"
+                    onClick={triggerDownload}
+                    disabled={!readyUrl}
+                    className="inline-flex w-full sm:w-auto items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-black disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                  >
+                    {readyUrl ? "Download file" : (
+                      <>
+                        <svg className="-ml-1 mr-2 h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        Preparing…
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    className="inline-flex w-full sm:w-auto items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Translate another file
+                  </button>
+                </div>
               ) : (
                 <button
                   type="submit"
                   disabled={busy}
-                  className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-black disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                  className="inline-flex w-full sm:w-auto items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-black disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
                 >
                   {busy ? "Processing…" : "Translate now"}
                 </button>
               )}
-              {phase === "downloading" && (
-                <button
-                  type="button"
-                  onClick={resetAll}
-                  className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  Translate another file
-                </button>
-              )}
+
             </div>
           </div>
         </form>
