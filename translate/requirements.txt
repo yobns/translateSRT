@@ -5,3 +5,4 @@ deep-translator>=1.11.4
 charset-normalizer>=3.4.4
 fastapi>=0.115.0
 uvicorn>=0.30.0
+gunicorn>=20.1.0
