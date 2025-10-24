@@ -113,27 +113,39 @@ export default function Home() {
       const lenHeader = res.headers.get("content-length");
       const total = lenHeader ? parseInt(lenHeader, 10) : NaN;
       if (res.body && !Number.isNaN(total)) {
+        // Try streaming the response; fall back to blob() if the stream is locked or streaming isn't supported.
         setTotalSize(total);
-        const reader = res.body.getReader();
-        const chunks: Uint8Array[] = [];
-        let received = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            chunks.push(value);
-            received += value.byteLength;
-            setDownloaded(received);
+        try {
+          const reader = res.body.getReader();
+          const chunks: Uint8Array[] = [];
+          let received = 0;
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              chunks.push(value);
+              received += value.byteLength;
+              setDownloaded(received);
+            }
+          }
+          const all = new Uint8Array(received);
+          let offset = 0;
+          for (const ch of chunks) {
+            all.set(ch, offset);
+            offset += ch.byteLength;
+          }
+          blob = new Blob([all], { type: res.headers.get("content-type") || "text/plain; charset=utf-8" });
+        } catch (e) {
+          // Some runtimes (or earlier code) may lock the stream; gracefully fall back to reading the full blob.
+          // This avoids the "ReadableStreamDefaultReader constructor can only accept readable streams that are not yet locked" error.
+          // Keep the total size if available so UI can still show progress as indeterminate.
+          try {
+            blob = await res.blob();
+          } catch (err) {
+            throw err;
           }
         }
-        const all = new Uint8Array(received);
-        let offset = 0;
-        for (const ch of chunks) {
-          all.set(ch, offset);
-          offset += ch.byteLength;
-        }
-        blob = new Blob([all], { type: res.headers.get("content-type") || "text/plain; charset=utf-8" });
       } else {
         // Fallback: no streaming support or unknown length; keep "downloading" phase with indeterminate bar
         blob = await res.blob();

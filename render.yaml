@@ -13,7 +13,7 @@ services:
     env: node
     plan: free
     root: .
-    buildCommand: npm ci && npm run build
+  buildCommand: pip install -r translate/requirements.txt && npm ci && npm run build
     startCommand: npm run start -- -p $PORT
     envVars:
       # Configure the frontend to proxy requests to the backend API.

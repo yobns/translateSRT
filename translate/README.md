@@ -109,3 +109,5 @@ Notes:
 - Default speed/quality tunables are already enabled; override them via Render environment variables if needed (e.g., `GROUP_MAX_CHARS`, `TRANSLATE_CONCURRENCY`).
 
 Once the backend is up, configure Vercel (see root README) with `PY_BACKEND_URL` pointing to the backend and redeploy the Next.js site.
+
+in local execute npm run dev:all then nump run dev:stop
