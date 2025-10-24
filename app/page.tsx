@@ -139,9 +139,13 @@ export default function Home() {
         } catch (e) {
           // Some runtimes (or earlier code) may lock the stream; gracefully fall back to reading the full blob.
           // This avoids the "ReadableStreamDefaultReader constructor can only accept readable streams that are not yet locked" error.
-          // Keep the total size if available so UI can still show progress as indeterminate.
           try {
             blob = await res.blob();
+            // Update progress UI with actual blob size so the progress bar reaches 100%.
+            if (blob && typeof blob.size === "number") {
+              setTotalSize(blob.size);
+              setDownloaded(blob.size);
+            }
           } catch (err) {
             throw err;
           }
@@ -149,11 +153,20 @@ export default function Home() {
       } else {
         // Fallback: no streaming support or unknown length; keep "downloading" phase with indeterminate bar
         blob = await res.blob();
+        if (blob && typeof blob.size === "number") {
+          setTotalSize(blob.size);
+          setDownloaded(blob.size);
+        }
       }
       const url = URL.createObjectURL(blob);
       const name = (f.name.replace(/\.srt$/i, "") || "subtitles") + `_${target}.srt`;
       setReadyUrl(url);
       setReadyName(name);
+      // Mark as ready; keep phase at 'downloading' so user can click Download button.
+      // For UX clarity, ensure downloaded count equals total if we determined it above.
+      if (total && !Number.isNaN(total)) {
+        setDownloaded(total);
+      }
       // Stay in "downloading" step and let the user click the Download button
     } catch (err: any) {
       setError(err?.message || String(err));
