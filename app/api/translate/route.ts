@@ -3,7 +3,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
-import crypto from "node:crypto";
 
 export const runtime = "nodejs";
 
@@ -50,19 +49,6 @@ function runPythonValidate(cwd: string, filePath: string): Promise<{ code: numbe
   });
 }
 
-// ...crypto and runtime already imported above
-
-type JobRecord = {
-  dir: string;
-  inPath: string;
-  baseName: string;
-  status: "running" | "done" | "error";
-  outPath?: string;
-  stderr?: string;
-};
-
-const JOBS: Map<string, JobRecord> = new Map();
-
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -78,7 +64,7 @@ export async function POST(req: NextRequest) {
     const source = String(form.get("source") || "auto").toLowerCase();
     const backend = (process.env.PY_BACKEND_URL || "").trim();
 
-    // If a remote Python backend is configured, proxy synchronously (existing behavior)
+    // If a remote Python backend is configured (for Vercel), proxy the request.
     if (backend) {
       const fd = new FormData();
       fd.append("file", file, file.name);
@@ -103,23 +89,41 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
       const url = base + "/translate";
+      // Stream the backend response instead of buffering it. This allows the browser to
+      // receive progress events and streaming bytes in production where buffering can hide progress.
       const resp = await fetch(url, { method: "POST", body: fd });
-      const ab = await resp.arrayBuffer();
-      // Pass-through headers we care about
-      const cd = resp.headers.get("content-disposition") || `attachment; filename="output_${target}.srt"`;
-      const cl = resp.headers.get("content-length") || String(ab.byteLength || 0);
-      return new Response(ab, {
+
+      // Build forwarded headers, filtering hop-by-hop headers per RFC.
+      const hopByHop = new Set([
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+      ]);
+      const outHeaders = new Headers();
+      for (const [k, v] of resp.headers.entries()) {
+        if (!hopByHop.has(k.toLowerCase())) {
+          outHeaders.set(k, v as string);
+        }
+      }
+      // Ensure content-disposition and cache-control exist for the client
+      if (!outHeaders.has("content-disposition")) {
+        outHeaders.set("content-disposition", `attachment; filename="output_${target}.srt"`);
+      }
+      outHeaders.set("cache-control", "no-store");
+
+      // Return the backend body stream directly so the browser can stream-download it.
+      return new Response(resp.body, {
         status: resp.status,
-        headers: {
-          "Content-Type": resp.headers.get("content-type") || "text/plain; charset=utf-8",
-          "Content-Disposition": cd,
-          "Content-Length": cl,
-          "Cache-Control": "no-store",
-        },
+        headers: outHeaders,
       });
     }
 
-  const { dir, inPath, baseName } = await saveTempFile(file);
+    const { dir, inPath, baseName } = await saveTempFile(file);
     // Quick format sanity check: try to detect at least one timecode line
     try {
       const text = await fs.readFile(inPath, "utf-8");
@@ -130,7 +134,7 @@ export async function POST(req: NextRequest) {
     } catch {}
     const translateDir = path.resolve(process.cwd(), "translate");
 
-  // Strong validation with pysrt before processing
+    // Strong validation with pysrt before processing
     try {
       const v = await runPythonValidate(translateDir, inPath);
       if (v.code !== 0) {
@@ -164,10 +168,6 @@ export async function POST(req: NextRequest) {
       GROUP_DEEP: String(form.get("group_deep") ?? "1"),
     } as unknown as NodeJS.ProcessEnv;
 
-    // If the client wants progress updates, create a PROGRESS_PATH inside the temp dir
-    const progressPath = path.join(dir, "progress.json");
-    env.PROGRESS_PATH = progressPath;
-
     // Always-on fast mode: speed + context by grouping more lines safely
     env.FAST_MODE = "1";
     env.USE_DOMINANT_FOR_GROUP = env.USE_DOMINANT_FOR_GROUP || "1";
@@ -179,69 +179,47 @@ export async function POST(req: NextRequest) {
     env.CACHE_GROUP_THRESHOLD = env.CACHE_GROUP_THRESHOLD || "0.4";
     env.TRANSLATE_CONCURRENCY = env.TRANSLATE_CONCURRENCY || "6";
 
-    // Start a background job and return a job id so the frontend can poll progress.
-    const jobId = crypto.randomUUID();
-    JOBS.set(jobId, { dir, inPath, baseName, status: "running" });
+    const { code, stdout, stderr } = await runPythonTranslate(translateDir, env);
 
-    // Spawn the translator in background
-    const { code, stdout, stderr } = await (async () => {
-      // Use spawn like runPythonTranslate but don't block the event loop while waiting to update JOBS on completion
-      const child = spawn(env.PYTHON_CMD || "python3", ["run_deep.py"], { cwd: translateDir, env: { ...process.env, ...env } });
-      let out = "";
-      let err = "";
-      child.stdout.on("data", (d) => { out += d.toString(); });
-      child.stderr.on("data", (d) => { err += d.toString(); });
-      child.on("close", (c) => {
-        const outPath = path.join(path.dirname(inPath), `${baseName}_${target}.srt`);
-        const rec = JOBS.get(jobId);
-        if (rec) {
-          rec.status = c === 0 ? "done" : "error";
-          rec.outPath = outPath;
-          rec.stderr = err;
-          JOBS.set(jobId, rec);
-        }
-      });
-      // Return a small wrapper promise that resolves immediately (we don't wait here)
-      return { code: 0, stdout: "", stderr: "" };
-    })();
+    const lowerOut = (stdout + "\n" + stderr).toLowerCase();
+    if (code !== 0) {
+      console.error("Python translate failed", { code, stdout, stderr });
+      return new Response(JSON.stringify({ error: "Translation failed", details: stderr || stdout }), { status: 500 });
+    }
+    // Map common pipeline errors to 400s where appropriate
+    if (lowerOut.includes("error opening srt file")) {
+      return new Response(JSON.stringify({ error: "Invalid SRT file format" }), { status: 400 });
+    }
+    if (lowerOut.includes("no srt file found")) {
+      return new Response(JSON.stringify({ error: "SRT could not be read" }), { status: 400 });
+    }
 
-    return new Response(JSON.stringify({ jobId }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const outPath = path.join(path.dirname(inPath), `${baseName}_${target}.srt`);
+    let data: Buffer;
+    try {
+      data = await fs.readFile(outPath);
+    } catch (e) {
+      console.error("Output SRT not found", e, { outPath, stdout, stderr });
+      return new Response(JSON.stringify({ error: "Translation failed", details: stdout || String(e) }), { status: 500 });
+    }
+
+    // Best-effort cleanup
+    try { await fs.unlink(inPath); } catch {}
+    try { await fs.unlink(outPath); } catch {}
+    try { await fs.rm(dir, { recursive: true, force: true }); } catch {}
+
+    const ab = (data.buffer as ArrayBuffer).slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+    return new Response(ab, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${baseName}_${target}.srt"`,
+        "Content-Length": String(data.byteLength || 0),
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (err: any) {
     console.error("Unexpected error in /api/translate", err);
     return new Response(JSON.stringify({ error: "Server error", details: String(err?.message || err) }), { status: 500 });
   }
-}
-
-// Status endpoint: GET /api/translate/status?job=JOBID
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const job = url.searchParams.get("job");
-  const action = url.searchParams.get("action") || "status";
-  if (!job) return new Response(JSON.stringify({ error: "missing job id" }), { status: 400 });
-  const rec = JOBS.get(job);
-  if (!rec) return new Response(JSON.stringify({ error: "unknown job" }), { status: 404 });
-
-  // If client asked for download
-  if (action === "download") {
-    if (rec.status !== "done" || !rec.outPath) return new Response(JSON.stringify({ error: "not ready" }), { status: 404 });
-    try {
-      const data = await fs.readFile(rec.outPath);
-      return new Response(data, { status: 200, headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${path.basename(rec.outPath)}"`,
-        "Content-Length": String(data.byteLength || 0),
-      }});
-    } catch (e: any) {
-      return new Response(JSON.stringify({ error: "file not found", details: String(e) }), { status: 500 });
-    }
-  }
-
-  // Default: return status and any progress info from progress.json
-  let progress = null;
-  try {
-    const progRaw = await fs.readFile(path.join(rec.dir, "progress.json"), "utf-8");
-    progress = JSON.parse(progRaw);
-  } catch {}
-
-  return new Response(JSON.stringify({ status: rec.status, progress }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
