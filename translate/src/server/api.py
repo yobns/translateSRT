@@ -4,7 +4,7 @@ import subprocess
 from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, RedirectResponse
 
 app = FastAPI(title="SRT Translate Backend", version="1.0.0")
 
@@ -153,6 +153,12 @@ app = FastAPI(title="SRT Translator API")
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+@app.get("/", include_in_schema=False)
+async def root_redirect():
+    """Redirect the service root to /health to avoid 404s on /."""
+    return RedirectResponse(url="/health")
 
 @app.post("/validate")
 async def validate_endpoint(file: UploadFile = File(...)):
