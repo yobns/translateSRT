@@ -83,3 +83,21 @@ Response: `text/plain` attachment with the translated `.srt` content.
 - If translation fails, check server logs; the API returns stderr/stdout details.
 - Large files: SRT files are usually small. If you hit limits, we can increase body size or stream more aggressively.
 
+### SEO configuration (Google)
+
+This project exposes standards-based SEO endpoints and metadata via the Next.js App Router:
+
+- Robots: `/robots.txt` (generated from `app/robots.ts`)
+- Sitemap: `/sitemap.xml` (generated from `app/sitemap.ts`)
+- Web App Manifest: `/manifest.webmanifest` (from `app/manifest.ts`)
+
+Set your public base URL so absolute links are correct:
+
+```bash
+export NEXT_PUBLIC_SITE_URL="https://votre-domaine.example"
+```
+
+Metadata such as title, description, OpenGraph, Twitter card, canonical URL, and robots directives are configured in `app/layout.tsx`.
+
+Optional: add proper PWA icons to `public/` (for example `icon-192.png`, `icon-512.png`) and list them in `app/manifest.ts`.
+
