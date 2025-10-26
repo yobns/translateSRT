@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/logo.png" alt="SRT Translate" width="120" />
+<img src="public/favicon.ico" alt="SRT Translate" width="120" />
 
 ### SRT Translate — Fast, reliable subtitle translation (.srt)
 
