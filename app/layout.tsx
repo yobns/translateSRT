@@ -10,7 +10,6 @@ const inter = Inter({
   weight: ["300", "400", "600", "700", "800"],
 });
 
-// Resolve site URL without relying on Node typings in this file
 const siteUrl = (globalThis as any)?.process?.env?.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {

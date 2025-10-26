@@ -25,7 +25,6 @@ body {
   font-family: var(--font-inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial);
 }
 
-/* subtle glow used for gradient 'AI' heading */
 .text-glow {
   text-shadow: 0 6px 18px rgba(14,165,233,0.08);
 }

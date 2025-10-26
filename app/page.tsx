@@ -39,7 +39,7 @@ export default function Home() {
 
   const formatBytes = (n: number) => {
     if (!Number.isFinite(n)) return "0 B";
-    const units = ["B", "KB", "MB", "GB"]; // SRT files are usually small
+    const units = ["B", "KB", "MB", "GB"];
     let i = 0;
     let v = n;
     while (v >= 1024 && i < units.length - 1) {
@@ -67,7 +67,6 @@ export default function Home() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    // cleanup previous prepared download
     if (readyUrl) {
       URL.revokeObjectURL(readyUrl);
       setReadyUrl(null);
@@ -98,7 +97,6 @@ export default function Home() {
           const j = JSON.parse(txt);
           message = String(j.error || message);
         } catch {}
-        // Simplify UI message for a clean, professional look
         const generic = "Something went wrong. Please try again.";
         const lower = message.toLowerCase();
         const simple = res.status === 400 && (lower.includes("invalid srt") || lower.includes("srt"))
@@ -108,18 +106,15 @@ export default function Home() {
         setPhase("error");
         return;
       }
-      // Try to stream the response to show progress
       let blob: Blob;
       const lenHeader = res.headers.get("content-length");
       const total = lenHeader ? parseInt(lenHeader, 10) : NaN;
       if (res.body && !Number.isNaN(total)) {
-        // Try streaming the response; fall back to blob() if the stream is locked or streaming isn't supported.
         setTotalSize(total);
         try {
           const reader = res.body.getReader();
           const chunks: Uint8Array[] = [];
           let received = 0;
-          // eslint-disable-next-line no-constant-condition
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -137,11 +132,8 @@ export default function Home() {
           }
           blob = new Blob([all], { type: res.headers.get("content-type") || "text/plain; charset=utf-8" });
         } catch (e) {
-          // Some runtimes (or earlier code) may lock the stream; gracefully fall back to reading the full blob.
-          // This avoids the "ReadableStreamDefaultReader constructor can only accept readable streams that are not yet locked" error.
           try {
             blob = await res.blob();
-            // Update progress UI with actual blob size so the progress bar reaches 100%.
             if (blob && typeof blob.size === "number") {
               setTotalSize(blob.size);
               setDownloaded(blob.size);
@@ -151,7 +143,6 @@ export default function Home() {
           }
         }
       } else {
-        // Fallback: no streaming support or unknown length; keep "downloading" phase with indeterminate bar
         blob = await res.blob();
         if (blob && typeof blob.size === "number") {
           setTotalSize(blob.size);
@@ -162,12 +153,9 @@ export default function Home() {
       const name = (f.name.replace(/\.srt$/i, "") || "subtitles") + `_${target}.srt`;
       setReadyUrl(url);
       setReadyName(name);
-      // Mark as ready; keep phase at 'downloading' so user can click Download button.
-      // For UX clarity, ensure downloaded count equals total if we determined it above.
       if (total && !Number.isNaN(total)) {
         setDownloaded(total);
       }
-      // Stay in "downloading" step and let the user click the Download button
     } catch (err: any) {
       setError(err?.message || String(err));
       setPhase("error");
@@ -184,7 +172,6 @@ export default function Home() {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    // Keep the URL to allow multiple downloads; clean up when the user starts a new translation
     setPhase("downloading");
     showToast("Downloaded!");
   };
@@ -206,7 +193,6 @@ export default function Home() {
 
   return (
   <div className="relative min-h-screen w-full overflow-x-hidden bg-linear-to-b from-white via-zinc-50 to-zinc-100 text-zinc-900 antialiased dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900 dark:text-zinc-100">
-      {/* Toast */}
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 top-3 z-50 mx-auto w-fit rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-lg dark:border-neutral-800 dark:bg-neutral-900 dark:text-zinc-100">
           {toast}
@@ -226,7 +212,6 @@ export default function Home() {
         </header>
 
         <form onSubmit={onSubmit} className="rounded-2xl border border-zinc-200 bg-white/80 p-6 shadow-xl backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-950/80">
-          {/* Steps */}
           <div className="mb-6">
             <div className="grid grid-cols-3 items-center gap-2 text-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
               <div className={`${phase !== "idle" ? "text-zinc-900 dark:text-zinc-200" : ""}`}>1. Upload</div>
@@ -245,7 +230,6 @@ export default function Home() {
                 <div className="h-full w-0" />
               )}
             </div>
-            {/* Progress text */}
             <div className="mt-2 flex items-center justify-end text-[11px] text-zinc-600 dark:text-zinc-400">
               {phase === "downloading" && totalSize && totalSize > 0 ? (
                 <span>
@@ -290,7 +274,6 @@ export default function Home() {
                     if (f) handleFiles(f);
                   }}
                   className={[
-                    // add min-w-0 and w-full so children can shrink and not cause horizontal overflow on small screens
                     "group flex w-full min-w-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition",
                     dragOver ? "border-zinc-900 bg-zinc-50/70 dark:border-neutral-200 dark:bg-neutral-900/60" : "border-zinc-300 hover:bg-zinc-50/60 dark:border-neutral-700 dark:hover:bg-neutral-900/50",
                   ].join(" ")}

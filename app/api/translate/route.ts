@@ -21,7 +21,6 @@ async function saveTempFile(file: File): Promise<{ dir: string; inPath: string; 
   const baseName = path.parse(safeName).name;
   const inPath = path.join(tmpDir, safeName);
   await fs.writeFile(inPath, buffer);
-  // outPath is determined later once we know target code
   return { dir: tmpDir, inPath, outPath: "", baseName };
 }
 
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest) {
     if (!(file instanceof File)) {
       return new Response(JSON.stringify({ error: "Missing SRT file" }), { status: 400 });
     }
-    // Enforce .srt extension
     if (!/\.srt$/i.test(file.name || "")) {
       return new Response(JSON.stringify({ error: "Only .srt files are supported" }), { status: 400 });
     }
@@ -64,7 +62,6 @@ export async function POST(req: NextRequest) {
     const source = String(form.get("source") || "auto").toLowerCase();
     const backend = (process.env.PY_BACKEND_URL || "").trim();
 
-    // If a remote Python backend is configured (for Vercel), proxy the request.
     if (backend) {
       const fd = new FormData();
       fd.append("file", file, file.name);
@@ -72,7 +69,6 @@ export async function POST(req: NextRequest) {
       fd.append("source", source);
       if (form.get("group_deep")) fd.append("group_deep", String(form.get("group_deep")));
       const base = backend.replace(/\/$/, "");
-      // Preflight validate for faster feedback
       try {
         const v = await fetch(base + "/validate", { method: "POST", body: fd });
         if (!v.ok) {
@@ -91,10 +87,6 @@ export async function POST(req: NextRequest) {
       const url = base + "/translate";
       const resp = await fetch(url, { method: "POST", body: fd });
       const ab = await resp.arrayBuffer();
-      // Pass-through headers we care about. IMPORTANT: use the actual buffer length
-      // rather than trusting the backend's Content-Length (which may reflect
-      // compressed size). Also avoid forwarding Content-Encoding to prevent the
-      // browser from attempting to decode already-decoded bytes (causes ERR_CONTENT_DECODING_FAILED).
       const cd = resp.headers.get("content-disposition") || `attachment; filename="output_${target}.srt"`;
       const cl = String((ab && (ab.byteLength || 0)) || 0);
       return new Response(ab, {
@@ -102,7 +94,6 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": resp.headers.get("content-type") || "text/plain; charset=utf-8",
           "Content-Disposition": cd,
-          // Ensure Content-Length matches the actual body we're sending
           "Content-Length": cl,
           "Cache-Control": "no-store",
         },
@@ -110,7 +101,6 @@ export async function POST(req: NextRequest) {
     }
 
     const { dir, inPath, baseName } = await saveTempFile(file);
-    // Quick format sanity check: try to detect at least one timecode line
     try {
       const text = await fs.readFile(inPath, "utf-8");
       const hasTimecode = /\d{2}:\d{2}:\d{2},\d{3}\s+-->\s+\d{2}:\d{2}:\d{2},\d{3}/.test(text);
@@ -120,7 +110,6 @@ export async function POST(req: NextRequest) {
     } catch {}
     const translateDir = path.resolve(process.cwd(), "translate");
 
-    // Strong validation with pysrt before processing
     try {
       const v = await runPythonValidate(translateDir, inPath);
       if (v.code !== 0) {
@@ -129,7 +118,6 @@ export async function POST(req: NextRequest) {
           const j = JSON.parse(v.stdout || v.stderr || "{}");
           if (j.error) {
             const raw = String(j.error);
-            // Map to friendly messages
             const mArrow = raw.match(/invalid timecode syntax at line (\d+)/i);
             const mMissing = raw.match(/missing text after timecode at line (\d+)/i);
             if (mArrow) msg = `Invalid SRT at line ${mArrow[1]}: expected '-->' between timestamps.`;
@@ -154,11 +142,9 @@ export async function POST(req: NextRequest) {
       GROUP_DEEP: String(form.get("group_deep") ?? "1"),
     } as unknown as NodeJS.ProcessEnv;
 
-    // Always-on fast mode: speed + context by grouping more lines safely
     env.FAST_MODE = "1";
     env.USE_DOMINANT_FOR_GROUP = env.USE_DOMINANT_FOR_GROUP || "1";
     env.ALLOW_GROUP_AUTO = env.ALLOW_GROUP_AUTO || "1";
-    // Defaults tuned for good quality and speed; can be overridden by server env if needed
     env.GROUP_MAX_CHARS = env.GROUP_MAX_CHARS || "2200";
     env.GROUP_MAX_BLOCKS = env.GROUP_MAX_BLOCKS || "12";
     env.GROUP_MAX_GAP_MS = env.GROUP_MAX_GAP_MS || "3000";
@@ -172,7 +158,6 @@ export async function POST(req: NextRequest) {
       console.error("Python translate failed", { code, stdout, stderr });
       return new Response(JSON.stringify({ error: "Translation failed", details: stderr || stdout }), { status: 500 });
     }
-    // Map common pipeline errors to 400s where appropriate
     if (lowerOut.includes("error opening srt file")) {
       return new Response(JSON.stringify({ error: "Invalid SRT file format" }), { status: 400 });
     }
@@ -189,7 +174,6 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: "Translation failed", details: stdout || String(e) }), { status: 500 });
     }
 
-    // Best-effort cleanup
     try { await fs.unlink(inPath); } catch {}
     try { await fs.unlink(outPath); } catch {}
     try { await fs.rm(dir, { recursive: true, force: true }); } catch {}

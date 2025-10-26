@@ -57,7 +57,6 @@ async def validate(file: UploadFile = File(...)):
     msg = _strict_validate_bytes(raw)
     if msg:
         raise HTTPException(status_code=400, detail=msg)
-    # Deep validation using pysrt
     import pysrt
     with tempfile.NamedTemporaryFile(delete=False, suffix=".srt") as tmp:
         tmp.write(raw)
@@ -82,7 +81,6 @@ async def translate(
     group_deep: str = Form("1"),
 ):
     raw = await file.read()
-    # Write input file
     with tempfile.TemporaryDirectory() as tmpdir:
         in_path = os.path.join(tmpdir, file.filename or "input.srt")
         with open(in_path, "wb") as f:
@@ -98,7 +96,6 @@ async def translate(
             "SOURCE_LANG": (source or "auto").lower(),
             "OFFER_DOWNLOAD": "0",
             "AUTO_DOWNLOAD": "0",
-            # Speed + context defaults (can be tuned by host env)
             "FAST_MODE": env.get("FAST_MODE", "1"),
             "USE_DOMINANT_FOR_GROUP": env.get("USE_DOMINANT_FOR_GROUP", "1"),
             "ALLOW_GROUP_AUTO": env.get("ALLOW_GROUP_AUTO", "1"),
@@ -110,7 +107,6 @@ async def translate(
             "TRANSLATE_CONCURRENCY": env.get("TRANSLATE_CONCURRENCY", "6"),
         })
 
-        # Run translator from the translate/ directory so relative imports/paths work
         cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))  # translate/
         try:
             proc = subprocess.run(
@@ -127,7 +123,6 @@ async def translate(
         if proc.returncode != 0:
             raise HTTPException(status_code=500, detail=f"translation failed: {proc.stderr or proc.stdout}")
 
-        # Read output
         try:
             with open(out_path, "rb") as f:
                 data = f.read()
@@ -151,7 +146,6 @@ from ..translator import translate as t
 
 app = FastAPI(title="SRT Translator API")
 
-# Configure CORS. If FRONTEND_URL is set it will be used (comma-separated), otherwise allow all origins.
 _frontend = os.environ.get("FRONTEND_URL")
 if _frontend:
     _allow = [u.strip() for u in _frontend.split(",") if u.strip()]
@@ -210,9 +204,7 @@ async def translate_endpoint(
     source: str = Form("auto"),
     group_deep: str = Form("1"),
 ):
-    # Save upload to a temp dir
     with tempfile.TemporaryDirectory(prefix="srt-") as tmp:
-        # Sanitize filename and persist
         safe_name = os.path.basename(file.filename or "input.srt")
         safe_name = "".join(c if c.isalnum() or c in "._-" else "_" for c in safe_name) or "input.srt"
         in_path = os.path.join(tmp, safe_name)
@@ -220,7 +212,6 @@ async def translate_endpoint(
         with open(in_path, "wb") as f:
             f.write(data)
 
-        # Configure env knobs for the translator pipeline
         env = os.environ.copy()
         env.update({
             "INPUT_SRT": in_path,
@@ -231,7 +222,6 @@ async def translate_endpoint(
             "AUTO_DOWNLOAD": "0",
             "TRANSLATE_CACHE_PATH": os.path.join(tmp, ".translate_cache.sqlite"),
         })
-        # Patch os.environ for the duration of this request
         old_env = os.environ.copy()
         try:
             os.environ.clear()

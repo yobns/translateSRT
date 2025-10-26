@@ -11,13 +11,11 @@ export default function ResponsiveLogo() {
 
     const obs = new IntersectionObserver(
       ([entry]) => {
-        // When the sentinel is visible (not scrolled past) show the logo.
         setVisible(entry.isIntersecting);
       },
       {
         root: null,
         threshold: 0,
-        // trigger slightly earlier/later if needed
         rootMargin: "-2px 0px 0px 0px",
       }
     );
@@ -26,7 +24,6 @@ export default function ResponsiveLogo() {
     return () => obs.disconnect();
   }, []);
 
-  // Fallback for mobile browsers that don't select <source media> inside <picture>
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -39,19 +36,14 @@ export default function ResponsiveLogo() {
 
     update();
 
-    // Listen to OS-level changes
     let mql: MediaQueryList | null = null;
     if (window.matchMedia) {
       mql = window.matchMedia("(prefers-color-scheme: dark)");
       const handler = (e: MediaQueryListEvent) => update();
-      // modern and legacy
       if (mql.addEventListener) mql.addEventListener("change", handler);
       else if (mql.addListener) mql.addListener(handler as any);
-
-      // cleanup will remove listener below
     }
 
-    // Also watch for class changes (some setups toggle .dark on <html>)
     const mo = new MutationObserver(() => update());
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
