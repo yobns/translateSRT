@@ -12,6 +12,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "SRT Translate",
   description: "Translate your subtitles with AI",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
@@ -22,17 +26,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
-        {/* Fixed top-left logo to keep a consistent SaaS branding */}
         <div>
-          {/* logo aligned with the main content container; sticky so it stays above content but gains side spacing on wide screens */}
           <header className="sticky top-0 z-50">
             <div className="mx-auto max-w-3xl px-6">
-              {/* client-controlled responsive logo (will hide when you scroll past the sentinel) */}
               <ResponsiveLogo />
             </div>
           </header>
           <main className="min-h-screen pt-0 sm:pt-0 -mt-6 sm:-mt-4 lg:mt-0">
-            {/* sentinel observed by the client logo component; when this leaves the viewport the logo will hide */}
             <div id="logo-sentinel" className="h-px w-full" />
             {children}
           </main>
