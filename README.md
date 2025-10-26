@@ -2,7 +2,7 @@
 
 <img src="public/favicon.ico" alt="SRT Translate" width="120" />
 
-### SRT Translate — Fast, reliable subtitle translation (.srt)
+### SRT Translate — Fast, reliable, context-aware subtitle translation (.srt)
 
 Upload an SRT file, pick a target language, download a clean, well‑formatted translation.
 
@@ -32,25 +32,7 @@ SRT Translate helps you turn subtitle files (.srt) from one language to another 
 
 That’s it — no extra cleanup steps needed.
 
-### Tips for best results
-- Use well‑formed SRT files (each cue has a timecode line, then one or more text lines).
-- Prefer UTF‑8 encoding; if you see garbled characters, re‑save your SRT as UTF‑8.
-- Keep HTML/formatting tags simple (e.g., <i>, <b>); they’ll be retained in the output.
-
-## FAQ
-
-- Does it change timestamps?
-  - No. Timecodes are preserved as in your original file.
-- Will my formatting be kept?
-  - Yes. Common inline tags like <i> and <b> are preserved.
-- Can it handle RTL scripts (Arabic, Hebrew)?
-  - Yes, right‑to‑left languages are supported.
-- What’s the output encoding?
-  - UTF‑8.
-- I get “Invalid SRT”. What should I check?
-  - Ensure each cue has a timecode line like `00:00:00,000 --> 00:00:01,234` followed by one or more text lines; remove stray blank lines within cues.
-
-## Local usage
+## Run locally
 
 ### 1) Full app (UI + backend)
 
@@ -75,6 +57,19 @@ source translate/.venv/bin/activate
 pip install -r translate/requirements.txt
 uvicorn translate.src.server.api:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+## FAQ
+
+- Does it change timestamps?
+  - No. Timecodes are preserved as in your original file.
+- Will my formatting be kept?
+  - Yes. Common inline tags like <i> and <b> are preserved.
+- Can it handle RTL scripts (Arabic, Hebrew)?
+  - Yes, right‑to‑left languages are supported.
+- What’s the output encoding?
+  - UTF‑8.
+- I get “Invalid SRT”. What should I check?
+  - Ensure each cue has a timecode line like `00:00:00,000 --> 00:00:01,234` followed by one or more text lines; remove stray blank lines within cues.
 
 ---
 
