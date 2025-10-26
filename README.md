@@ -55,7 +55,6 @@ That’s it — no extra cleanup steps needed.
 ### 1) Full app (UI + backend)
 
 ```zsh
-export PY_BACKEND_URL="http://127.0.0.1:8000"  # UI proxies to the local backend
 npm install
 pip3 install -r translate/requirements.txt
 npm run dev:all                                # starts backend + UI
