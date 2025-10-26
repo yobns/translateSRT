@@ -1,0 +1,14 @@
+name: Ping backend every 13 minutes
+
+on:
+  schedule:
+    - cron: "*/13 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend directly
+        run: |
+          curl -sS -m 20 -w "\nHTTP %{http_code}\n" "https://translatesrt.onrender.com/health" || true
