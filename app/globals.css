@@ -28,3 +28,20 @@ body {
 .text-glow {
   text-shadow: 0 6px 18px rgba(14,165,233,0.08);
 }
+
+/* Ensure clickable controls show the hand cursor */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"],
+input[type="button"][disabled],
+input[type="submit"][disabled],
+input[type="reset"][disabled] {
+  cursor: not-allowed;
+}
