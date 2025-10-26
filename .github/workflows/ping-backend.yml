@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: Ping backend directly
         run: |
-          curl -sS -m 20 -w "\nHTTP %{http_code}\n" "https://translatesrt.onrender.com/health" || true
+          curl -sS -m 90 -w "\nHTTP %{http_code}\n" "https://translatesrt.onrender.com/health" || true
