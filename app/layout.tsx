@@ -71,7 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en">
 		<head>
-			<meta name="google-site-verification" content="b9FlQBBCPGCO7xOApL2DDQ2SmX70VtIQ1YGUmUl0ILU" />
+			<meta name="google-site-verification" content="5JxKCi53viOeeq5XVxcZ6qAnOf41bMa0Uu-eJ57XjY0" />
 		</head>
       <body className={`${inter.variable} antialiased`}>
         <div>
