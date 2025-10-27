@@ -1,0 +1,21 @@
+# Node/Next.js
+node_modules/
+.next/
+
+# Env files
+.env
+.env.local
+.env.*
+
+# macOS
+.DS_Store
+
+# Python venvs
+.venv/
+translate/.venv/
+
+# Translation cache
+.translate_cache.sqlite
+
+# Logs
+*.log

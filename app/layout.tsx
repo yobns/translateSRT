@@ -70,6 +70,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+		<head>
+			<meta name="google-site-verification" content="b9FlQBBCPGCO7xOApL2DDQ2SmX70VtIQ1YGUmUl0ILU" />
+		</head>
       <body className={`${inter.variable} antialiased`}>
         <div>
           <header className="sticky top-0 z-50">
